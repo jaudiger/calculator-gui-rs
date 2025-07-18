@@ -67,6 +67,7 @@ fn calc_setup(mut commands: Commands) {
 
     commands
         .spawn((
+            // Main grid
             Node {
                 display: Display::Grid,
                 width: Val::Percent(100.),
@@ -177,11 +178,15 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
 
 #[allow(clippy::needless_pass_by_value)]
 fn keyboard_input(keyboard_input: Res<ButtonInput<KeyCode>>) {
+    // On ESC press, exit the application
     if keyboard_input.pressed(KeyCode::Escape) {
         std::process::exit(0);
     }
 }
 
+/// Handle the button input, and update the operation result
+///
+/// Depending on the button pressed, and the current operation state, perform the corresponding action.
 #[allow(
     clippy::too_many_lines,
     clippy::cognitive_complexity,
@@ -338,6 +343,7 @@ fn button_input(
     Ok(())
 }
 
+/// Handle the button state (background color, border color)
 #[allow(clippy::type_complexity)]
 fn button_state(
     mut interaction_query: Query<
@@ -391,6 +397,7 @@ fn button_state(
     Ok(())
 }
 
+/// Handle all the buttons state (background color, border color), depending on the current operation state
 fn buttons_state(
     mut buttons: Query<
         (
