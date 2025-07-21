@@ -6,6 +6,10 @@ on:
     types: [completed]
     branches: [main]
 
+concurrency:
+  group: "deployment"
+  cancel-in-progress: false
+
 env:
   WASM_TARGET: wasm32-unknown-unknown
   TRUNK_OUTPUT_DIR: dist
