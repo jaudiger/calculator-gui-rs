@@ -13,11 +13,6 @@ resource "github_repository" "bevy_calculator" {
 
   pages {
     build_type = "workflow"
-
-    source {
-      branch = "main"
-      path   = "/"
-    }
   }
 }
 
