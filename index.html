@@ -26,7 +26,8 @@
         </style>
 
         <!-- Do not delete, it's used by the Trunk tool -->
-        <link data-trunk rel="rust" />
+        <!-- Also, include support for `wasm-bindgen --weak-refs`: https://rustwasm.github.io/docs/wasm-bindgen/reference/weak-references.html -->
+        <link data-trunk rel="rust" data-wasm-opt="z" data-weak-refs />
     </head>
 
     <body>
