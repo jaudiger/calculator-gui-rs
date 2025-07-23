@@ -14,20 +14,11 @@ env:
   WASM_TARGET: wasm32-unknown-unknown
   TRUNK_OUTPUT_DIR: dist
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 jobs:
   deployment:
     if: ${{ github.event.workflow_run.conclusion == 'success'
       && github.event.workflow_run.name == 'Continuous Integration - Static Analysis' }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,13 +46,11 @@ jobs:
         run: cargo install trunk --locked
 
       - name: Build
-        run: trunk build --release --public-url "/${{ github.event.repository.name }}/"
+        run: trunk build --release --public-url "/"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: ${{ env.TRUNK_OUTPUT_DIR }}
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ${{ env.TRUNK_OUTPUT_DIR }} --project-name=${{ github.event.repository.name }} --branch=${{ github.ref_name }}

@@ -12,7 +12,7 @@ trunk serve
 
 ### Alternative
 
-To see the calculator in action, open your Web browser and navigate to [https://jaudiger.github.io/bevy-calculator/](https://jaudiger.github.io/bevy-calculator/). The Wasm file is smaller than 10MB, but it can take a couple of seconds to be served by the GitHub Pages.
+The Wasm file is served through Cloudflare Pages. To see the calculator in action, open your Web browser and navigate to [https://bevy-calculator.jaudiger.dev/](https://bevy-calculator.jaudiger.dev/).
 
 ## CI / CD
 
