@@ -6,12 +6,6 @@ updates:
       interval: "weekly"
       day: "sunday"
 
-  - package-ecosystem: "terraform"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "sunday"
-
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
