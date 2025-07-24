@@ -14,6 +14,8 @@ trunk serve
 
 The Wasm file is served through Cloudflare Pages. To see the calculator in action, open your Web browser and navigate to [https://bevy-calculator.jaudiger.dev/](https://bevy-calculator.jaudiger.dev/).
 
+> **⚠️ Warning:** Serving the Wasm file can take a couple of second, even if the binary size is under 20MB.
+
 ## CI / CD
 
 The CI/CD pipeline is configured using GitHub Actions. The workflow is defined in the [`.github/workflows`](.github/workflows) folder:
