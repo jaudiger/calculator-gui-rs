@@ -312,15 +312,35 @@ fn button_input(
                     op_metadata.reset();
                 }
                 DIVIDE_BUTTON => {
+                    // Handle the case the user clicks on an operator before clicking on number buttons
+                    if op_metadata.left_operand().is_none() {
+                        op_metadata.set_left_operand(op_result.0.as_str())?;
+                    }
+
                     op_metadata.set_operator(CalcOperator::Div);
                 }
                 MULTIPLY_BUTTON => {
+                    // Handle the case the user clicks on an operator before clicking on number buttons
+                    if op_metadata.left_operand().is_none() {
+                        op_metadata.set_left_operand(op_result.0.as_str())?;
+                    }
+
                     op_metadata.set_operator(CalcOperator::Mul);
                 }
                 SUB_BUTTON => {
+                    // Handle the case the user clicks on an operator before clicking on number buttons
+                    if op_metadata.left_operand().is_none() {
+                        op_metadata.set_left_operand(op_result.0.as_str())?;
+                    }
+
                     op_metadata.set_operator(CalcOperator::Sub);
                 }
                 ADD_BUTTON => {
+                    // Handle the case the user clicks on an operator before clicking on number buttons
+                    if op_metadata.left_operand().is_none() {
+                        op_metadata.set_left_operand(op_result.0.as_str())?;
+                    }
+
                     op_metadata.set_operator(CalcOperator::Add);
                 }
                 DOT_BUTTON if !op_result.0.contains('.') => {

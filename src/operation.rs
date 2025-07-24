@@ -58,7 +58,7 @@ impl OperationMetadata {
         }
     }
 
-    fn set_left_operand(&mut self, left_operand: &str) -> Result {
+    pub fn set_left_operand(&mut self, left_operand: &str) -> Result {
         self.left_operand = Some(left_operand.parse::<f64>()?);
 
         Ok(())
@@ -72,6 +72,10 @@ impl OperationMetadata {
 
     pub const fn set_operator(&mut self, operator: CalcOperator) {
         self.operator = Some(operator);
+    }
+
+    pub const fn left_operand(&self) -> Option<f64> {
+        self.left_operand
     }
 
     pub const fn operator(&self) -> Option<CalcOperator> {
