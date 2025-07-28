@@ -1,8 +1,8 @@
-# Bevy Calculator
+# Calculator GUI (Wasm)
 
 ## Instructions
 
-This is a calculator built using the [Bevy](https://bevy.org) game engine. It's simple enough to demonstrate the usage of Bevy with WebAssembly (aka Wasm).
+This is a calculator built using [Rust](https://www.rust-lang.org) language with the [Bevy](https://bevy.org) game engine library. It's simple enough to demonstrate the usage of Bevy with WebAssembly (aka Wasm).
 
 To run it locally in your Web browser, you can use [trunk](https://trunkrs.dev), and go to [http://localhost:8080](http://localhost:8080):
 
@@ -12,7 +12,7 @@ trunk serve
 
 ### Alternative
 
-The Wasm file is served through Cloudflare Pages. To see the calculator in action, open your Web browser and navigate to [https://bevy-calculator.jaudiger.dev/](https://bevy-calculator.jaudiger.dev/).
+The Wasm file is served through Cloudflare Pages. To see it in action, open your Web browser and navigate to [https://calculator-gui-rs.jaudiger.dev/](https://calculator-gui-rs.jaudiger.dev/).
 
 > **⚠️ Warning:** Serving the Wasm file can take a couple of second, even if the binary size is under 20MB.
 
