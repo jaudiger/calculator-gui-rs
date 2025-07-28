@@ -1,4 +1,4 @@
-name: Continuous Integration ‑ Audit
+name: Continuous Integration - Audit
 
 on:
   push:
@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: audit‑${{ github.ref_name }}
+  group: audit-${{ github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -40,6 +40,6 @@ jobs:
             ~/.cargo/advisory-db
           key: audit-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run cargo‑audit
+      - name: Run cargo-audit
         uses: actions-rust-lang/audit@v1
         continue-on-error: true

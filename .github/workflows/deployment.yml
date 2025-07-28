@@ -2,7 +2,7 @@ name: Continuous Deployment
 
 on:
   workflow_run:
-    workflows: ["Continuous Integration - Static Analysis", "Continuous Integration ‑ Audit"]
+    workflows: ["Continuous Integration - Static Analysis", "Continuous Integration - Audit"]
     types: [completed]
     branches: [main]
 
