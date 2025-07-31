@@ -1,4 +1,4 @@
-# Calculator GUI (Wasm)
+# Calculator GUI (WebAssembly)
 
 ## Instructions
 
