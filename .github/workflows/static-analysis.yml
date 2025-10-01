@@ -24,7 +24,7 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libudev-dev
+          sudo apt-get install -y libasound2-dev libudev-dev libwayland-client0
 
       - name: Install Rust (${{ matrix.toolchain }})
         uses: dtolnay/rust-toolchain@v1
