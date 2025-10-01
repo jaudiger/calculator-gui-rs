@@ -28,7 +28,7 @@ impl AppPlugin {
         WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Calculator".to_string(),
-                resolution: WindowResolution::new(330., 315.),
+                resolution: WindowResolution::new(330, 315),
                 resizable: false,
                 transparent: true,
                 decorations: false,
@@ -96,7 +96,7 @@ fn calc_setup(mut commands: Commands) {
                             align_items: AlignItems::Center,         // Vertical
                             ..Default::default()
                         },
-                        BorderColor(Color::BLACK),
+                        BorderColor::all(Color::BLACK),
                         BorderRadius::MAX,
                         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     ),
@@ -163,14 +163,14 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
                 align_items: AlignItems::Center,         // Vertical
                 ..Default::default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             BorderRadius::MAX,
             BackgroundColor(NORMAL_BUTTON),
         ),
         children![(
             Text::new(button),
             TextColor::WHITE,
-            TextLayout::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(Justify::Center),
             TextShadow::default(),
         )],
     ));
@@ -395,20 +395,20 @@ fn button_state(
             }
             Interaction::Hovered => {
                 *bg_color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                *border_color = BorderColor::all(Color::WHITE);
             }
             Interaction::None => {
-                // Prevent the current operator button to be unhighlighted
+                // Prevent the current operator button to be un-highlighted
                 if let Some(operator) = op_metadata.operator() {
                     let button_variant: ButtonVariant = operator.into();
 
                     if button_variant != button_text.0.as_str() {
                         *bg_color = NORMAL_BUTTON.into();
-                        border_color.0 = Color::BLACK;
+                        *border_color = BorderColor::all(Color::BLACK);
                     }
                 } else {
                     *bg_color = NORMAL_BUTTON.into();
-                    border_color.0 = Color::BLACK;
+                    *border_color = BorderColor::all(Color::BLACK);
                 }
             }
         }
@@ -441,14 +441,14 @@ fn buttons_state(
             let button: ButtonVariant = operator.into();
 
             if button_text.0.as_str() == button {
-                border_color.0 = Color::WHITE;
+                *border_color = BorderColor::all(Color::WHITE);
             } else if *interaction != Interaction::Hovered {
                 *bg_color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                *border_color = BorderColor::all(Color::BLACK);
             }
         } else if *interaction != Interaction::Hovered {
             *bg_color = NORMAL_BUTTON.into();
-            border_color.0 = Color::BLACK;
+            *border_color = BorderColor::all(Color::BLACK);
         }
     }
 
