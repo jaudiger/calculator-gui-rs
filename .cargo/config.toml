@@ -2,4 +2,4 @@
 # 'wasm-opt' needs the target_features section to be kept, in order to optimize the WebAssembly binary.
 # This can become an issue when the symbols are not kept in the Wasm binary.
 # Also starting with Bevy 0.17, we need to set the 'getrandom' backend used (see https://bevy.org/learn/migration-guides/0-16-to-0-17/#updated-glam-rand-and-getrandom-versions-with-new-failures-when-building-for-web)
-rustflags = ["--codegen", "link-arg=--keep-section=target_features", "--cfg", "getrandom_backend=wasm_js"]
+rustflags = ["--codegen", "link-arg=--keep-section=target_features", "--cfg", "getrandom_backend=\"wasm_js\""]
