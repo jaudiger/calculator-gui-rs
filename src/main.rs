@@ -91,13 +91,13 @@ fn calc_setup(mut commands: Commands) {
                     (
                         Node {
                             border: UiRect::all(Val::Px(2.)),
+                            border_radius: BorderRadius::MAX,
                             margin: UiRect::all(Val::Percent(1.)),
                             justify_content: JustifyContent::Center, // Horizontal
                             align_items: AlignItems::Center,         // Vertical
                             ..Default::default()
                         },
                         BorderColor::all(Color::BLACK),
-                        BorderRadius::MAX,
                         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     ),
                     children![(
@@ -155,6 +155,7 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
                 width: Val::Px(80.),
                 height: Val::Px(50.),
                 border: UiRect::all(Val::Px(2.)),
+                border_radius: BorderRadius::MAX,
                 margin: UiRect::all(Val::Percent(1.)),
                 display: Display::Grid,
                 grid_row: GridPlacement::start_end(row as i16 + 2, row as i16 + 3), // Offset by 1 for the result value row
@@ -164,7 +165,6 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
                 ..Default::default()
             },
             BorderColor::all(Color::BLACK),
-            BorderRadius::MAX,
             BackgroundColor(NORMAL_BUTTON),
         ),
         children![(
