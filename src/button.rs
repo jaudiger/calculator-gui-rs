@@ -37,6 +37,7 @@ pub type ButtonState = Color;
 pub const NORMAL_BUTTON: ButtonState = Color::srgb(0.15, 0.15, 0.15);
 pub const HOVERED_BUTTON: ButtonState = Color::srgb(0.25, 0.25, 0.25);
 pub const PRESSED_BUTTON: ButtonState = Color::srgb(0.75, 0.75, 0.75);
+pub const FOCUSED_BUTTON: ButtonState = Color::srgb(0.2, 0.4, 0.8);
 
 /// Struct definition used for tagging buttons for Bevy query
 #[derive(Component)]
