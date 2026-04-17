@@ -14,7 +14,6 @@ use bevy::input_focus::{InputDispatchPlugin, InputFocusVisible, IsFocused, IsFoc
 use bevy::math::CompassOctant;
 use bevy::prelude::*;
 use bevy::ui::auto_directional_navigation::AutoDirectionalNavigation;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 use bevy::window::CompositeAlphaMode;
 use bevy::window::WindowResolution;
 
@@ -39,10 +38,11 @@ impl AppPlugin {
                 decorations: false,
                 canvas: Some("#bevy-canvas".into()),
                 fit_canvas_to_parent: false,
-                #[cfg(target_os = "macos")]
-                composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
-                #[cfg(target_os = "linux")]
-                composite_alpha_mode: CompositeAlphaMode::PreMultiplied,
+                composite_alpha_mode: std::cfg_select! {
+                    target_os = "macos" => CompositeAlphaMode::PostMultiplied,
+                    target_os = "linux" => CompositeAlphaMode::PreMultiplied,
+                    _ => CompositeAlphaMode::Auto,
+                },
                 ..Default::default()
             }),
             ..Default::default()
