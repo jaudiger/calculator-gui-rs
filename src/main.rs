@@ -184,92 +184,20 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
 }
 
 /// Process a button action (digit, operator, etc.) and update the display and operation state
-#[allow(clippy::too_many_lines)]
 fn process_button_action(
     button: &str,
     op_result: &mut Mut<'_, Text>,
     op_metadata: &mut Mut<'_, OperationMetadata>,
 ) -> Result {
     match button {
-        // Number buttons
-        ZERO_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "0".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        ONE_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "1".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        TWO_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "2".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        THREE_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "3".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        FOUR_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "4".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        FIVE_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "5".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        SIX_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "6".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        SEVEN_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "7".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        EIGHT_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "8".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        NINE_BUTTON if op_result.0 == "0" || op_metadata.is_new_operand() => {
-            op_result.0 = "9".to_string();
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        ZERO_BUTTON => {
-            op_result.0 = format!("{}0", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        ONE_BUTTON => {
-            op_result.0 = format!("{}1", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        TWO_BUTTON => {
-            op_result.0 = format!("{}2", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        THREE_BUTTON => {
-            op_result.0 = format!("{}3", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        FOUR_BUTTON => {
-            op_result.0 = format!("{}4", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        FIVE_BUTTON => {
-            op_result.0 = format!("{}5", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        SIX_BUTTON => {
-            op_result.0 = format!("{}6", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        SEVEN_BUTTON => {
-            op_result.0 = format!("{}7", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        EIGHT_BUTTON => {
-            op_result.0 = format!("{}8", op_result.0);
-            op_metadata.set_operand(op_result.0.as_str())?;
-        }
-        NINE_BUTTON => {
-            op_result.0 = format!("{}9", op_result.0);
+        // Digit buttons
+        ZERO_BUTTON | ONE_BUTTON | TWO_BUTTON | THREE_BUTTON | FOUR_BUTTON | FIVE_BUTTON
+        | SIX_BUTTON | SEVEN_BUTTON | EIGHT_BUTTON | NINE_BUTTON => {
+            if op_result.0 == "0" || op_metadata.is_new_operand() {
+                op_result.0 = button.to_string();
+            } else {
+                op_result.0.push_str(button);
+            }
             op_metadata.set_operand(op_result.0.as_str())?;
         }
 
@@ -293,48 +221,29 @@ fn process_button_action(
             op_result.0 = result_value.to_string();
             op_metadata.reset();
         }
-        DIVIDE_BUTTON => {
+        ADD_BUTTON | SUB_BUTTON | MULTIPLY_BUTTON | DIVIDE_BUTTON => {
             // Handle the case the user clicks on an operator before clicking on number buttons
             if op_metadata.left_operand().is_none() {
                 op_metadata.set_left_operand(op_result.0.as_str())?;
             }
 
-            op_metadata.set_operator(CalcOperator::Div);
-        }
-        MULTIPLY_BUTTON => {
-            // Handle the case the user clicks on an operator before clicking on number buttons
-            if op_metadata.left_operand().is_none() {
-                op_metadata.set_left_operand(op_result.0.as_str())?;
-            }
-
-            op_metadata.set_operator(CalcOperator::Mul);
-        }
-        SUB_BUTTON => {
-            // Handle the case the user clicks on an operator before clicking on number buttons
-            if op_metadata.left_operand().is_none() {
-                op_metadata.set_left_operand(op_result.0.as_str())?;
-            }
-
-            op_metadata.set_operator(CalcOperator::Sub);
-        }
-        ADD_BUTTON => {
-            // Handle the case the user clicks on an operator before clicking on number buttons
-            if op_metadata.left_operand().is_none() {
-                op_metadata.set_left_operand(op_result.0.as_str())?;
-            }
-
-            op_metadata.set_operator(CalcOperator::Add);
+            let operator = match button {
+                ADD_BUTTON => CalcOperator::Add,
+                SUB_BUTTON => CalcOperator::Sub,
+                MULTIPLY_BUTTON => CalcOperator::Mul,
+                DIVIDE_BUTTON => CalcOperator::Div,
+                _ => unreachable!(),
+            };
+            op_metadata.set_operator(operator);
         }
         DOT_BUTTON if !op_result.0.contains('.') => {
             op_result.0 = format!("{}.", op_result.0);
         }
-        EQUAL_BUTTON => {
-            if op_metadata.is_under_operation() {
-                let result_value = op_metadata.calculate()?;
-                op_result.0 = result_value.to_string();
+        EQUAL_BUTTON if op_metadata.is_under_operation() => {
+            let result_value = op_metadata.calculate()?;
+            op_result.0 = result_value.to_string();
 
-                op_metadata.reset();
-            }
+            op_metadata.reset();
         }
 
         _ => {}
