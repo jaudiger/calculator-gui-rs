@@ -5,8 +5,9 @@
  *
  */
 
-use bevy::prelude::Color;
-use bevy::prelude::Component;
+use bevy::prelude::*;
+use bevy::scene::SceneComponent;
+use bevy::ui::auto_directional_navigation::AutoDirectionalNavigation;
 
 /// Type definition to define the buttons
 pub type ButtonVariant = &'static str;
@@ -39,6 +40,41 @@ pub const HOVERED_BUTTON: ButtonState = Color::srgb(0.25, 0.25, 0.25);
 pub const PRESSED_BUTTON: ButtonState = Color::srgb(0.75, 0.75, 0.75);
 pub const FOCUSED_BUTTON: ButtonState = Color::srgb(0.2, 0.4, 0.8);
 
-/// Struct definition used for tagging buttons for Bevy query
-#[derive(Component)]
+/// A calculator button. Spawning it creates the full button scene plus its
+/// `Text` child, so any system that queries for `CalcButton` can rely on
+/// the rest of the scene being present.
+#[derive(SceneComponent, Default, Clone)]
+#[scene(CalcButtonProps)]
 pub struct CalcButton;
+
+#[derive(Default, Clone, Copy)]
+pub struct CalcButtonProps {
+    pub label: ButtonVariant,
+}
+
+impl CalcButton {
+    fn scene(props: CalcButtonProps) -> impl Scene {
+        bsn! {
+            Button
+            AutoDirectionalNavigation::default()
+            Node {
+                width: Val::Px(80.),
+                height: Val::Px(50.),
+                border: UiRect::all(Val::Px(2.)),
+                border_radius: BorderRadius::MAX,
+                margin: UiRect::all(Val::Percent(1.)),
+                display: Display::Grid,
+                justify_content: JustifyContent::Center, // Horizontal
+                align_items: AlignItems::Center,         // Vertical
+            }
+            BorderColor::all(Color::BLACK)
+            BackgroundColor(NORMAL_BUTTON)
+            Children [(
+                Text({props.label})
+                TextColor::WHITE
+                TextLayout::justify(Justify::Center)
+                TextShadow::default()
+            )]
+        }
+    }
+}

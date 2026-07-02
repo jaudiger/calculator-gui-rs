@@ -42,7 +42,7 @@ impl fmt::Display for CalcOperator {
 }
 
 /// Represents and manage the ongoing operation.
-#[derive(Default, Component)]
+#[derive(Default, Component, Clone)]
 pub struct OperationMetadata {
     left_operand: Option<f64>,
     right_operand: Option<f64>,
@@ -100,14 +100,6 @@ impl OperationMetadata {
         );
 
         Ok(result)
-    }
-
-    pub const fn is_new_operand(&self) -> bool {
-        if self.is_under_operation() {
-            self.right_operand.is_none()
-        } else {
-            self.left_operand.is_none()
-        }
     }
 
     pub const fn is_under_operation(&self) -> bool {

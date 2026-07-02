@@ -6,7 +6,7 @@ edition = "2024"
 rust-version = "1.96"
 
 [dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.19.0", features = ["bevy_scene"] }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
