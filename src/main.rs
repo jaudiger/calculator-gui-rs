@@ -14,7 +14,6 @@ use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible, IsFocused, Is
 use bevy::math::CompassOctant;
 use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextEdit, TextEditChange};
-use bevy::ui::auto_directional_navigation::AutoDirectionalNavigation;
 use bevy::window::CompositeAlphaMode;
 use bevy::window::WindowResolution;
 
@@ -28,8 +27,11 @@ use operation::{CalcOperator, OperationMetadata};
 
 struct AppPlugin;
 
-#[derive(Component)]
+#[derive(Component, Default, Clone)]
 struct InitialFocus;
+
+const N_COLS: u16 = 4;
+const N_ROWS: u16 = 6;
 
 impl AppPlugin {
     fn window_plugin() -> WindowPlugin {
@@ -59,140 +61,129 @@ impl Plugin for AppPlugin {
         app.add_plugins(DefaultPlugins.set(Self::window_plugin()));
         app.add_plugins(DirectionalNavigationPlugin);
         app.insert_resource(ClearColor(Color::NONE));
-        app.add_systems(Startup, (app_setup, calc_setup));
+        app.add_systems(Startup, calc_setup);
         app.add_systems(Update, (keyboard_input, button_state, buttons_state));
         app.add_observer(sync_display_to_operand);
     }
 }
 
-fn app_setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
-}
-
 fn calc_setup(mut commands: Commands) {
-    const N_COLS: u16 = 4;
-    const N_ROWS: u16 = 6;
+    let button_labels: [ButtonVariant; 19] = [
+        // Row 1
+        CLEAR_BUTTON,
+        INVERT_BUTTON,
+        POURCENT_BUTTON,
+        DIVIDE_BUTTON,
+        // Row 2
+        SEVEN_BUTTON,
+        EIGHT_BUTTON,
+        NINE_BUTTON,
+        MULTIPLY_BUTTON,
+        // Row 3
+        FOUR_BUTTON,
+        FIVE_BUTTON,
+        SIX_BUTTON,
+        SUB_BUTTON,
+        // Row 4
+        ONE_BUTTON,
+        TWO_BUTTON,
+        THREE_BUTTON,
+        ADD_BUTTON,
+        // Row 5
+        ZERO_BUTTON,
+        DOT_BUTTON,
+        EQUAL_BUTTON,
+    ];
 
-    commands
-        .spawn((
-            // Main grid
-            Node {
-                display: Display::Grid,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                grid_template_columns: RepeatedGridTrack::auto(N_COLS),
-                grid_template_rows: RepeatedGridTrack::auto(N_ROWS),
-                ..Default::default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-        ))
-        .with_children(|builder| {
-            // Result value row
-            builder.spawn((
-                Node {
-                    display: Display::Grid,
-                    grid_column: GridPlacement::span(4),
-                    padding: UiRect::right(Val::Percent(3.)),
-                    ..Default::default()
-                },
-                children![(
-                    (
-                        Node {
-                            border: UiRect::all(Val::Px(2.)),
-                            border_radius: BorderRadius::MAX,
-                            margin: UiRect::all(Val::Percent(1.)),
-                            justify_content: JustifyContent::Center, // Horizontal
-                            align_items: AlignItems::Center,         // Vertical
-                            ..Default::default()
-                        },
-                        BorderColor::all(Color::BLACK),
-                        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ),
-                    children![(
-                        EditableText::new("0"),
-                        TextColor::WHITE,
-                        TextLayout::justify(Justify::Center),
-                        EditableTextFilter::new(is_calc_char),
-                        Node {
-                            width: Val::Percent(90.),
-                            ..Default::default()
-                        },
-                        OperationMetadata::default(),
-                    )],
-                )],
-            ));
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_possible_wrap,
+        clippy::explicit_auto_deref
+    )]
+    let buttons: Vec<Box<dyn Scene>> = button_labels
+        .iter()
+        .enumerate()
+        .map(|(i, label)| {
+            let row = (i / 4) as u16;
+            let col = (i % 4) as u16;
+            button_scene(*label, row, col, i == 0)
+        })
+        .collect();
 
-            // Buttons
-            let buttons = vec![
-                // Row 1
-                CLEAR_BUTTON,
-                INVERT_BUTTON,
-                POURCENT_BUTTON,
-                DIVIDE_BUTTON,
-                // Row 2
-                SEVEN_BUTTON,
-                EIGHT_BUTTON,
-                NINE_BUTTON,
-                MULTIPLY_BUTTON,
-                // Row 3
-                FOUR_BUTTON,
-                FIVE_BUTTON,
-                SIX_BUTTON,
-                SUB_BUTTON,
-                // Row 4
-                ONE_BUTTON,
-                TWO_BUTTON,
-                THREE_BUTTON,
-                ADD_BUTTON,
-                // Row 5
-                ZERO_BUTTON,
-                DOT_BUTTON,
-                EQUAL_BUTTON,
-            ];
-
-            for (index, button) in buttons.iter().enumerate() {
-                let row = index / 4;
-                let col = index % 4;
-
-                create_button(builder, button, row, col);
-            }
-        });
+    commands.spawn_scene_list(bsn_list![Camera2d, grid(buttons),]);
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usize, col: usize) {
-    let mut entity = builder.spawn((
-        (
-            Button,
-            CalcButton,
-            AutoDirectionalNavigation::default(),
+fn grid_tracks(count: u16) -> Vec<RepeatedGridTrack> {
+    vec![RepeatedGridTrack::auto(count); count as usize]
+}
+
+fn grid(buttons: Vec<Box<dyn Scene>>) -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Grid,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            grid_template_columns: { grid_tracks(N_COLS) },
+            grid_template_rows: { grid_tracks(N_ROWS) },
+        }
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8))
+        Children [
+            display(),
+            { buttons },
+        ]
+    }
+}
+
+fn display() -> impl Scene {
+    bsn! {
+        Node {
+            display: Display::Grid,
+            grid_column: GridPlacement::span(4),
+            padding: UiRect::right(Val::Percent(3.)),
+        }
+        Children [(
             Node {
-                width: Val::Px(80.),
-                height: Val::Px(50.),
                 border: UiRect::all(Val::Px(2.)),
                 border_radius: BorderRadius::MAX,
                 margin: UiRect::all(Val::Percent(1.)),
-                display: Display::Grid,
-                grid_row: GridPlacement::start_end(row as i16 + 2, row as i16 + 3), // Offset by 1 for the result value row
-                grid_column: GridPlacement::start_end(col as i16 + 1, col as i16 + 2),
                 justify_content: JustifyContent::Center, // Horizontal
                 align_items: AlignItems::Center,         // Vertical
-                ..Default::default()
-            },
-            BorderColor::all(Color::BLACK),
-            BackgroundColor(NORMAL_BUTTON),
-        ),
-        children![(
-            Text::new(button),
-            TextColor::WHITE,
-            TextLayout::justify(Justify::Center),
-            TextShadow::default(),
-        )],
-    ));
-    if row == 0 && col == 0 {
-        entity.insert(InitialFocus);
+            }
+            BorderColor::all(Color::BLACK)
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25))
+            Children [(
+                Node {
+                    width: Val::Percent(90.),
+                }
+                TextColor::WHITE
+                TextLayout::justify(Justify::Center)
+                EditableText::new("0")
+                EditableTextFilter::new(is_calc_char)
+                OperationMetadata::default()
+            )]
+        )]
     }
-    entity.observe(on_button_click);
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+fn button_scene(label: ButtonVariant, row: u16, col: u16, is_first: bool) -> Box<dyn Scene> {
+    let grid_row = GridPlacement::start_end(row as i16 + 2, row as i16 + 3); // Offset by 1 for the result value row
+    let grid_column = GridPlacement::start_end(col as i16 + 1, col as i16 + 2);
+
+    if is_first {
+        Box::new(bsn! {
+            @CalcButton { @label: label }
+            Node { grid_row, grid_column }
+            InitialFocus
+            on(on_button_click)
+        })
+    } else {
+        Box::new(bsn! {
+            @CalcButton { @label: label }
+            Node { grid_row, grid_column }
+            on(on_button_click)
+        })
+    }
 }
 
 /// Filter callback for the calculator display, allowing only valid input characters.
