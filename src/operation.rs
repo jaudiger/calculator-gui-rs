@@ -102,14 +102,6 @@ impl OperationMetadata {
         Ok(result)
     }
 
-    pub const fn is_new_operand(&self) -> bool {
-        if self.is_under_operation() {
-            self.right_operand.is_none()
-        } else {
-            self.left_operand.is_none()
-        }
-    }
-
     pub const fn is_under_operation(&self) -> bool {
         self.operator.is_some()
     }

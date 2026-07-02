@@ -10,9 +10,10 @@ mod operation;
 
 use bevy::input::keyboard::Key;
 use bevy::input_focus::directional_navigation::DirectionalNavigationPlugin;
-use bevy::input_focus::{InputDispatchPlugin, InputFocusVisible, IsFocused, IsFocusedHelper};
+use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible, IsFocused, IsFocusedHelper};
 use bevy::math::CompassOctant;
 use bevy::prelude::*;
+use bevy::text::{EditableText, EditableTextFilter, TextEdit, TextEditChange};
 use bevy::ui::auto_directional_navigation::AutoDirectionalNavigation;
 use bevy::window::CompositeAlphaMode;
 use bevy::window::WindowResolution;
@@ -26,6 +27,9 @@ use button::{
 use operation::{CalcOperator, OperationMetadata};
 
 struct AppPlugin;
+
+#[derive(Component)]
+struct InitialFocus;
 
 impl AppPlugin {
     fn window_plugin() -> WindowPlugin {
@@ -53,13 +57,11 @@ impl AppPlugin {
 impl Plugin for AppPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(Self::window_plugin()));
-        app.add_plugins((InputDispatchPlugin, DirectionalNavigationPlugin));
+        app.add_plugins(DirectionalNavigationPlugin);
         app.insert_resource(ClearColor(Color::NONE));
         app.add_systems(Startup, (app_setup, calc_setup));
-        app.add_systems(
-            Update,
-            (keyboard_input, button_input, button_state, buttons_state),
-        );
+        app.add_systems(Update, (keyboard_input, button_state, buttons_state));
+        app.add_observer(sync_display_to_operand);
     }
 }
 
@@ -107,8 +109,14 @@ fn calc_setup(mut commands: Commands) {
                         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     ),
                     children![(
-                        Text::new("0".to_string()),
+                        EditableText::new("0"),
                         TextColor::WHITE,
+                        TextLayout::justify(Justify::Center),
+                        EditableTextFilter::new(is_calc_char),
+                        Node {
+                            width: Val::Percent(90.),
+                            ..Default::default()
+                        },
                         OperationMetadata::default(),
                     )],
                 )],
@@ -153,7 +161,7 @@ fn calc_setup(mut commands: Commands) {
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usize, col: usize) {
-    builder.spawn((
+    let mut entity = builder.spawn((
         (
             Button,
             CalcButton,
@@ -177,54 +185,76 @@ fn create_button(builder: &mut ChildSpawnerCommands<'_>, button: &str, row: usiz
         children![(
             Text::new(button),
             TextColor::WHITE,
-            TextLayout::new_with_justify(Justify::Center),
+            TextLayout::justify(Justify::Center),
             TextShadow::default(),
         )],
     ));
+    if row == 0 && col == 0 {
+        entity.insert(InitialFocus);
+    }
+    entity.observe(on_button_click);
+}
+
+/// Filter callback for the calculator display, allowing only valid input characters.
+const fn is_calc_char(c: char) -> bool {
+    c.is_ascii_digit() || c == '.' || c == '-'
+}
+
+/// Replace the editable text and move the cursor to the end.
+fn reset_editable(editable: &mut EditableText, text: &str) {
+    editable.editor_mut().set_text(text);
+    editable.queue_edit(TextEdit::TextEnd(false));
 }
 
 /// Process a button action (digit, operator, etc.) and update the display and operation state
 fn process_button_action(
     button: &str,
-    op_result: &mut Mut<'_, Text>,
-    op_metadata: &mut Mut<'_, OperationMetadata>,
+    editable: &mut EditableText,
+    op_metadata: &mut OperationMetadata,
 ) -> Result {
     match button {
         // Digit buttons
         ZERO_BUTTON | ONE_BUTTON | TWO_BUTTON | THREE_BUTTON | FOUR_BUTTON | FIVE_BUTTON
         | SIX_BUTTON | SEVEN_BUTTON | EIGHT_BUTTON | NINE_BUTTON => {
-            if op_result.0 == "0" || op_metadata.is_new_operand() {
-                op_result.0 = button.to_string();
+            let current = editable.value();
+            if current == "0" {
+                reset_editable(editable, button);
             } else {
-                op_result.0.push_str(button);
+                editable.queue_edit(TextEdit::Insert(button.into()));
             }
-            op_metadata.set_operand(op_result.0.as_str())?;
         }
 
         // Operator buttons
         CLEAR_BUTTON => {
-            op_result.0 = "0".to_string();
+            reset_editable(editable, "0");
             op_metadata.reset();
         }
-        INVERT_BUTTON if op_result.0.starts_with('-') => {
-            op_result.0 = op_result.0[1..].to_string();
-        }
-        INVERT_BUTTON if op_result.0 != "0" => {
-            op_result.0 = format!("-{}", op_result.0);
+        INVERT_BUTTON => {
+            let current = editable.value().to_string();
+            let negated = (!current.is_empty() && current != "0").then(|| format!("-{current}"));
+            let new_text = current
+                .strip_prefix('-')
+                .map(str::to_string)
+                .or(negated)
+                .unwrap_or(current);
+            reset_editable(editable, &new_text);
         }
         POURCENT_BUTTON => {
-            let display_value = op_result.0.parse::<f64>()?;
+            let current = editable.value().to_string();
+            let display_value = current.parse::<f64>()?;
             let result_value = display_value / 100.0;
 
-            info!("Calculating: {} {} = {}", display_value, "%", result_value);
+            info!("Calculating: {display_value} % = {result_value}");
 
-            op_result.0 = result_value.to_string();
+            reset_editable(editable, &result_value.to_string());
             op_metadata.reset();
         }
         ADD_BUTTON | SUB_BUTTON | MULTIPLY_BUTTON | DIVIDE_BUTTON => {
+            let current = editable.value().to_string();
+
             // Handle the case the user clicks on an operator before clicking on number buttons
             if op_metadata.left_operand().is_none() {
-                op_metadata.set_left_operand(op_result.0.as_str())?;
+                op_metadata.set_left_operand(&current)?;
             }
 
             let operator = match button {
@@ -235,14 +265,20 @@ fn process_button_action(
                 _ => unreachable!(),
             };
             op_metadata.set_operator(operator);
+
+            // Clear the display for the next operand. The TextEditChange observer
+            // will sync the cleared value into the appropriate operand.
+            reset_editable(editable, "0");
         }
-        DOT_BUTTON if !op_result.0.contains('.') => {
-            op_result.0 = format!("{}.", op_result.0);
+        DOT_BUTTON => {
+            let current = editable.value().to_string();
+            if !current.contains('.') {
+                editable.queue_edit(TextEdit::Insert(".".into()));
+            }
         }
         EQUAL_BUTTON if op_metadata.is_under_operation() => {
             let result_value = op_metadata.calculate()?;
-            op_result.0 = result_value.to_string();
-
+            reset_editable(editable, &result_value.to_string());
             op_metadata.reset();
         }
 
@@ -252,42 +288,31 @@ fn process_button_action(
     Ok(())
 }
 
-/// Map a logical key to a button label (keyboard layout independent)
-fn key_to_button(key: &Key) -> Option<&'static str> {
-    match key {
-        Key::Character(c) => match c.as_str() {
-            "0" => Some(ZERO_BUTTON),
-            "1" => Some(ONE_BUTTON),
-            "2" => Some(TWO_BUTTON),
-            "3" => Some(THREE_BUTTON),
-            "4" => Some(FOUR_BUTTON),
-            "5" => Some(FIVE_BUTTON),
-            "6" => Some(SIX_BUTTON),
-            "7" => Some(SEVEN_BUTTON),
-            "8" => Some(EIGHT_BUTTON),
-            "9" => Some(NINE_BUTTON),
-            "+" => Some(ADD_BUTTON),
-            "-" => Some(SUB_BUTTON),
-            "*" => Some(MULTIPLY_BUTTON),
-            "/" => Some(DIVIDE_BUTTON),
-            "=" => Some(EQUAL_BUTTON),
-            "." => Some(DOT_BUTTON),
-            "c" | "C" => Some(CLEAR_BUTTON),
-            _ => None,
-        },
-        Key::Backspace | Key::Delete => Some(CLEAR_BUTTON),
-        _ => None,
-    }
+/// Sync the current operation operand with the editable display value.
+fn sync_display_to_operand(
+    _change: On<TextEditChange>,
+    mut display: Single<(&EditableText, &mut OperationMetadata)>,
+) {
+    let (editable, op_metadata) = &mut *display;
+    let value = editable.value().to_string();
+    let _ = op_metadata.set_operand(&value);
 }
 
-/// Handle keyboard input for calculator operations and navigation
-#[allow(clippy::needless_pass_by_value)]
+/// Handle keyboard input for calculator navigation and the Enter-to-activate shortcut.
+///
+/// Character entry is handled by the focused [`EditableText`] widget via the
+/// `EditableTextInputPlugin` which is part of `DefaultPlugins`.
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)]
 fn keyboard_input(
     keys: Res<ButtonInput<KeyCode>>,
     logical_keys: Res<ButtonInput<Key>>,
-    mut operation_query: Query<(&mut Text, &mut OperationMetadata), With<OperationMetadata>>,
+    mut operation_query: Query<
+        (&mut EditableText, &mut OperationMetadata),
+        With<OperationMetadata>,
+    >,
     mut input_focus_visible: ResMut<InputFocusVisible>,
     button_query: Query<(Entity, &Children), With<CalcButton>>,
+    initial_focus_query: Query<Entity, (With<CalcButton>, With<InitialFocus>)>,
     text_query: Query<&Text, Without<OperationMetadata>>,
     mut auto_nav: bevy::ui::auto_directional_navigation::AutoDirectionalNavigator,
 ) -> Result {
@@ -318,13 +343,12 @@ fn keyboard_input(
         let focus_is_button = current_focus.is_some_and(|e| button_query.get(e).is_ok());
 
         if focus_is_button {
-            // Navigate in the specified direction
             let _ = auto_nav.navigate(direction);
-        } else {
-            // No button focused, set focus to first button
-            if let Some((entity, _)) = button_query.iter().next() {
-                auto_nav.manual_directional_navigation.focus.set(entity);
-            }
+        } else if let Ok(entity) = initial_focus_query.single() {
+            auto_nav
+                .manual_directional_navigation
+                .focus
+                .set(entity, FocusCause::Navigated);
         }
         return Ok(());
     }
@@ -338,58 +362,45 @@ fn keyboard_input(
         {
             debug!("Activating focused button: {}", button_text.0.as_str());
 
-            let (mut op_result, mut op_metadata) = operation_query.single_mut()?;
-            process_button_action(button_text.0.as_str(), &mut op_result, &mut op_metadata)?;
+            let (mut editable, mut op_metadata) = operation_query.single_mut()?;
+            process_button_action(button_text.0.as_str(), &mut editable, &mut op_metadata)?;
         } else {
             // No focused button, Enter triggers EQUAL
             debug!("Key pressed: Enter -> button: {}", EQUAL_BUTTON);
 
-            let (mut op_result, mut op_metadata) = operation_query.single_mut()?;
-            process_button_action(EQUAL_BUTTON, &mut op_result, &mut op_metadata)?;
+            let (mut editable, mut op_metadata) = operation_query.single_mut()?;
+            process_button_action(EQUAL_BUTTON, &mut editable, &mut op_metadata)?;
         }
         return Ok(());
-    }
-
-    // Handle character input (logical keys - keyboard layout independent)
-    for key in logical_keys.get_just_pressed() {
-        if let Some(button) = key_to_button(key) {
-            debug!("Key pressed: {:?} -> button: {}", key, button);
-
-            let (mut op_result, mut op_metadata) = operation_query.single_mut()?;
-            process_button_action(button, &mut op_result, &mut op_metadata)?;
-            return Ok(());
-        }
     }
 
     Ok(())
 }
 
-/// Handle the button input, and update the operation result
-///
-/// Depending on the button pressed, and the current operation state, perform the corresponding action.
-#[allow(clippy::type_complexity)]
-fn button_input(
-    mut interaction_query: Query<
-        (&Interaction, &Children),
-        (Changed<Interaction>, With<CalcButton>),
-    >,
-    text_query: Query<&Text, Without<OperationMetadata>>,
-    mut operation_query: Query<(&mut Text, &mut OperationMetadata), With<OperationMetadata>>,
+/// Handle a click on a calculator button and apply the corresponding action.
+#[allow(clippy::needless_pass_by_value)]
+fn on_button_click(
+    click: On<Pointer<Click>>,
+    mut input_focus: ResMut<InputFocus>,
     mut input_focus_visible: ResMut<InputFocusVisible>,
+    children_query: Query<&Children>,
+    text_query: Query<&Text, Without<OperationMetadata>>,
+    mut operation_query: Query<
+        (&mut EditableText, &mut OperationMetadata),
+        With<OperationMetadata>,
+    >,
 ) -> Result {
-    for (interaction, children) in &mut interaction_query {
-        if matches!(interaction, Interaction::Pressed) {
-            // Hide focus indicator when using mouse
-            input_focus_visible.0 = false;
+    let entity = click.entity;
+    input_focus_visible.0 = false;
+    input_focus.set(entity, FocusCause::Navigated);
 
-            let button_text = text_query.get(children[0])?;
+    let children = children_query.get(entity)?;
+    let button_text = text_query.get(children[0])?;
 
-            debug!("Clicking on button: {}", button_text.0.as_str());
+    debug!("Clicking on button: {}", button_text.0.as_str());
 
-            let (mut op_result, mut op_metadata) = operation_query.single_mut()?;
-            process_button_action(button_text.0.as_str(), &mut op_result, &mut op_metadata)?;
-        }
-    }
+    let (mut editable, mut op_metadata) = operation_query.single_mut()?;
+    process_button_action(button_text.0.as_str(), &mut editable, &mut op_metadata)?;
 
     Ok(())
 }
@@ -464,12 +475,14 @@ fn buttons_state(
     texts_query: Query<&Text, Without<OperationMetadata>>,
     operation_query: Query<&OperationMetadata>,
     focus_helper: IsFocusedHelper,
+    input_focus_visible: Res<InputFocusVisible>,
 ) -> Result {
+    let show_hover = !input_focus_visible.0;
+
     for (entity, interaction, mut bg_color, mut border_color, children) in &mut buttons {
         let button_text = texts_query.get(children[0])?;
         let op_metadata = operation_query.single()?;
 
-        // Check if this button is focused (and focus should be visible)
         let is_focused = focus_helper.is_focus_visible(entity);
 
         if op_metadata.is_under_operation()
@@ -480,18 +493,22 @@ fn buttons_state(
             if button_text.0.as_str() == button {
                 *border_color = BorderColor::all(Color::WHITE);
             } else if is_focused {
-                // Show focus indicator with blue background
                 *bg_color = FOCUSED_BUTTON.into();
                 *border_color = BorderColor::all(Color::srgb(0.3, 0.5, 1.0));
-            } else if *interaction != Interaction::Hovered {
+            } else if show_hover && *interaction == Interaction::Hovered {
+                *bg_color = HOVERED_BUTTON.into();
+                *border_color = BorderColor::all(Color::WHITE);
+            } else {
                 *bg_color = NORMAL_BUTTON.into();
                 *border_color = BorderColor::all(Color::BLACK);
             }
         } else if is_focused {
-            // Show focus indicator with blue background
             *bg_color = FOCUSED_BUTTON.into();
             *border_color = BorderColor::all(Color::srgb(0.3, 0.5, 1.0));
-        } else if *interaction != Interaction::Hovered {
+        } else if show_hover && *interaction == Interaction::Hovered {
+            *bg_color = HOVERED_BUTTON.into();
+            *border_color = BorderColor::all(Color::WHITE);
+        } else {
             *bg_color = NORMAL_BUTTON.into();
             *border_color = BorderColor::all(Color::BLACK);
         }
