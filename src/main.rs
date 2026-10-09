@@ -12,8 +12,12 @@ use bevy::input::keyboard::Key;
 use bevy::input_focus::directional_navigation::DirectionalNavigationPlugin;
 use bevy::input_focus::{FocusCause, InputFocus, InputFocusVisible, IsFocused, IsFocusedHelper};
 use bevy::math::CompassOctant;
+use bevy::picking::events::PointerClick;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use bevy::text::{EditableText, EditableTextFilter, TextEdit, TextEditChange};
+use bevy::text::{EditableText, EditableTextFilter, FontSize, TextEdit, TextEditChange};
+use bevy::ui::Pressed;
+use bevy::ui_widgets::{Activate, TextInput};
 use bevy::window::CompositeAlphaMode;
 use bevy::window::WindowResolution;
 
@@ -62,7 +66,7 @@ impl Plugin for AppPlugin {
         app.add_plugins(DirectionalNavigationPlugin);
         app.insert_resource(ClearColor(Color::NONE));
         app.add_systems(Startup, calc_setup);
-        app.add_systems(Update, (keyboard_input, button_state, buttons_state));
+        app.add_systems(Update, (keyboard_input, buttons_state));
         app.add_observer(sync_display_to_operand);
     }
 }
@@ -110,7 +114,11 @@ fn calc_setup(mut commands: Commands) {
         })
         .collect();
 
-    commands.spawn_scene_list(bsn_list![Camera2d, grid(buttons),]);
+    commands.spawn_scene_list(bsn_list! {
+        Camera2d
+        --
+        @grid(buttons)
+    });
 }
 
 fn grid_tracks(count: u16) -> Vec<RepeatedGridTrack> {
@@ -128,8 +136,9 @@ fn grid(buttons: Vec<Box<dyn Scene>>) -> impl Scene {
         }
         BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8))
         Children [
-            display(),
-            { buttons },
+            @display()
+            --
+            { buttons }
         ]
     }
 }
@@ -141,7 +150,7 @@ fn display() -> impl Scene {
             grid_column: GridPlacement::span(4),
             padding: UiRect::right(Val::Percent(3.)),
         }
-        Children [(
+        Children [
             Node {
                 border: UiRect::all(Val::Px(2.)),
                 border_radius: BorderRadius::MAX,
@@ -151,17 +160,21 @@ fn display() -> impl Scene {
             }
             BorderColor::all(Color::BLACK)
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25))
-            Children [(
+            Children [
                 Node {
                     width: Val::Percent(90.),
                 }
                 TextColor::WHITE
                 TextLayout::justify(Justify::Center)
+                TextFont {
+                    font_size: FontSize::Px(20.),
+                }
                 EditableText::new("0")
+                TextInput
                 EditableTextFilter::new(is_calc_char)
                 OperationMetadata::default()
-            )]
-        )]
+            ]
+        ]
     }
 }
 
@@ -175,13 +188,15 @@ fn button_scene(label: ButtonVariant, row: u16, col: u16, is_first: bool) -> Box
             @CalcButton { @label: label }
             Node { grid_row, grid_column }
             InitialFocus
-            on(on_button_click)
+            on(focus_button_on_click)
+            on(activate_button)
         })
     } else {
         Box::new(bsn! {
             @CalcButton { @label: label }
             Node { grid_row, grid_column }
-            on(on_button_click)
+            on(focus_button_on_click)
+            on(activate_button)
         })
     }
 }
@@ -289,7 +304,7 @@ fn sync_display_to_operand(
     let _ = op_metadata.set_operand(&value);
 }
 
-/// Handle keyboard input for calculator navigation and the Enter-to-activate shortcut.
+/// Handle keyboard navigation and the Enter fallback when no button is focused.
 ///
 /// Character entry is handled by the focused [`EditableText`] widget via the
 /// `EditableTextInputPlugin` which is part of `DefaultPlugins`.
@@ -302,9 +317,8 @@ fn keyboard_input(
         With<OperationMetadata>,
     >,
     mut input_focus_visible: ResMut<InputFocusVisible>,
-    button_query: Query<(Entity, &Children), With<CalcButton>>,
+    button_query: Query<Entity, With<CalcButton>>,
     initial_focus_query: Query<Entity, (With<CalcButton>, With<InitialFocus>)>,
-    text_query: Query<&Text, Without<OperationMetadata>>,
     mut auto_nav: bevy::ui::auto_directional_navigation::AutoDirectionalNavigator,
 ) -> Result {
     // On ESC press, clear focus indicator
@@ -344,21 +358,13 @@ fn keyboard_input(
         return Ok(());
     }
 
-    // Handle Enter to activate focused button, or trigger EQUAL if no button focused
+    // Focused buttons are activated by the UI widget; Enter without a button keeps the equals shortcut.
     if logical_keys.just_pressed(Key::Enter) {
-        // If a button is focused, activate it
-        if let Some(focused_entity) = auto_nav.input_focus()
-            && let Ok((_, children)) = button_query.get(focused_entity)
-            && let Ok(button_text) = text_query.get(children[0])
-        {
-            debug!("Activating focused button: {}", button_text.0.as_str());
+        let focus_is_button = auto_nav
+            .input_focus()
+            .is_some_and(|entity| button_query.get(entity).is_ok());
 
-            let (mut editable, mut op_metadata) = operation_query.single_mut()?;
-            process_button_action(button_text.0.as_str(), &mut editable, &mut op_metadata)?;
-        } else {
-            // No focused button, Enter triggers EQUAL
-            debug!("Key pressed: Enter -> button: {}", EQUAL_BUTTON);
-
+        if !focus_is_button {
             let (mut editable, mut op_metadata) = operation_query.single_mut()?;
             process_button_action(EQUAL_BUTTON, &mut editable, &mut op_metadata)?;
         }
@@ -368,12 +374,21 @@ fn keyboard_input(
     Ok(())
 }
 
-/// Handle a click on a calculator button and apply the corresponding action.
+/// Keep focus synchronized when a calculator button receives a pointer click.
 #[allow(clippy::needless_pass_by_value)]
-fn on_button_click(
-    click: On<Pointer<Click>>,
+fn focus_button_on_click(
+    click: On<PointerClick>,
     mut input_focus: ResMut<InputFocus>,
     mut input_focus_visible: ResMut<InputFocusVisible>,
+) {
+    input_focus_visible.0 = false;
+    input_focus.set(click.entity, FocusCause::Navigated);
+}
+
+/// Apply the action of an activated calculator button.
+#[allow(clippy::needless_pass_by_value)]
+fn activate_button(
+    activate: On<Activate>,
     children_query: Query<&Children>,
     text_query: Query<&Text, Without<OperationMetadata>>,
     mut operation_query: Query<
@@ -381,14 +396,10 @@ fn on_button_click(
         With<OperationMetadata>,
     >,
 ) -> Result {
-    let entity = click.entity;
-    input_focus_visible.0 = false;
-    input_focus.set(entity, FocusCause::Navigated);
-
-    let children = children_query.get(entity)?;
+    let children = children_query.get(activate.entity)?;
     let button_text = text_query.get(children[0])?;
 
-    debug!("Clicking on button: {}", button_text.0.as_str());
+    debug!("Activating button: {}", button_text.0.as_str());
 
     let (mut editable, mut op_metadata) = operation_query.single_mut()?;
     process_button_action(button_text.0.as_str(), &mut editable, &mut op_metadata)?;
@@ -396,67 +407,14 @@ fn on_button_click(
     Ok(())
 }
 
-/// Handle the button state (background color, border color)
-#[allow(clippy::type_complexity)]
-fn button_state(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
-        (Changed<Interaction>, With<CalcButton>),
-    >,
-    text_query: Query<&Text, Without<OperationMetadata>>,
-    operation_query: Query<&OperationMetadata>,
-) -> Result {
-    for (interaction, mut bg_color, mut border_color, children) in &mut interaction_query {
-        let button_text = text_query.get(children[0])?;
-
-        debug!(
-            "Interaction '{:?}' on button: {}",
-            *interaction,
-            button_text.0.as_str()
-        );
-
-        let op_metadata = operation_query.single()?;
-
-        match *interaction {
-            Interaction::Pressed => {
-                *bg_color = PRESSED_BUTTON.into();
-            }
-            Interaction::Hovered => {
-                *bg_color = HOVERED_BUTTON.into();
-                *border_color = BorderColor::all(Color::WHITE);
-            }
-            Interaction::None => {
-                // Prevent the current operator button to be un-highlighted
-                if let Some(operator) = op_metadata.operator() {
-                    let button_variant: ButtonVariant = operator.into();
-
-                    if button_variant != button_text.0.as_str() {
-                        *bg_color = NORMAL_BUTTON.into();
-                        *border_color = BorderColor::all(Color::BLACK);
-                    }
-                } else {
-                    *bg_color = NORMAL_BUTTON.into();
-                    *border_color = BorderColor::all(Color::BLACK);
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Handle all the buttons state (background color, border color), depending on the current operation state and focus
-#[allow(clippy::needless_pass_by_value)]
+/// Update button colors from pressed, hover, focus, and operation state.
+#[allow(clippy::type_complexity, clippy::needless_pass_by_value)]
 fn buttons_state(
     mut buttons: Query<
         (
             Entity,
-            &Interaction,
+            &Hovered,
+            Has<Pressed>,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
@@ -468,41 +426,37 @@ fn buttons_state(
     focus_helper: IsFocusedHelper,
     input_focus_visible: Res<InputFocusVisible>,
 ) -> Result {
+    let operation = operation_query.single()?;
     let show_hover = !input_focus_visible.0;
 
-    for (entity, interaction, mut bg_color, mut border_color, children) in &mut buttons {
+    for (entity, hovered, is_pressed, mut bg_color, mut border_color, children) in &mut buttons {
         let button_text = texts_query.get(children[0])?;
-        let op_metadata = operation_query.single()?;
-
+        let button_label = button_text.0.as_str();
+        let is_selected_operator = operation
+            .operator()
+            .is_some_and(|operator| ButtonVariant::from(operator) == button_label);
         let is_focused = focus_helper.is_focus_visible(entity);
+        let is_hovered = show_hover && hovered.0;
 
-        if op_metadata.is_under_operation()
-            && let Some(operator) = op_metadata.operator()
-        {
-            let button: ButtonVariant = operator.into();
-
-            if button_text.0.as_str() == button {
-                *border_color = BorderColor::all(Color::WHITE);
-            } else if is_focused {
-                *bg_color = FOCUSED_BUTTON.into();
-                *border_color = BorderColor::all(Color::srgb(0.3, 0.5, 1.0));
-            } else if show_hover && *interaction == Interaction::Hovered {
-                *bg_color = HOVERED_BUTTON.into();
-                *border_color = BorderColor::all(Color::WHITE);
-            } else {
-                *bg_color = NORMAL_BUTTON.into();
-                *border_color = BorderColor::all(Color::BLACK);
-            }
+        let background = if is_pressed {
+            PRESSED_BUTTON
         } else if is_focused {
-            *bg_color = FOCUSED_BUTTON.into();
-            *border_color = BorderColor::all(Color::srgb(0.3, 0.5, 1.0));
-        } else if show_hover && *interaction == Interaction::Hovered {
-            *bg_color = HOVERED_BUTTON.into();
-            *border_color = BorderColor::all(Color::WHITE);
+            FOCUSED_BUTTON
+        } else if is_hovered {
+            HOVERED_BUTTON
         } else {
-            *bg_color = NORMAL_BUTTON.into();
-            *border_color = BorderColor::all(Color::BLACK);
-        }
+            NORMAL_BUTTON
+        };
+        *bg_color = background.into();
+
+        let border = if is_selected_operator || is_hovered {
+            Color::WHITE
+        } else if is_focused {
+            Color::srgb(0.3, 0.5, 1.0)
+        } else {
+            Color::BLACK
+        };
+        *border_color = BorderColor::all(border);
     }
 
     Ok(())

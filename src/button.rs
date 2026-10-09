@@ -5,9 +5,12 @@
  *
  */
 
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::scene::SceneComponent;
+use bevy::text::FontSize;
 use bevy::ui::auto_directional_navigation::AutoDirectionalNavigation;
+use bevy::ui_widgets::Button as UiButton;
 
 /// Type definition to define the buttons
 pub type ButtonVariant = &'static str;
@@ -55,7 +58,8 @@ pub struct CalcButtonProps {
 impl CalcButton {
     fn scene(props: CalcButtonProps) -> impl Scene {
         bsn! {
-            Button
+            UiButton
+            Hovered::default()
             AutoDirectionalNavigation::default()
             Node {
                 width: Val::Px(80.),
@@ -69,12 +73,15 @@ impl CalcButton {
             }
             BorderColor::all(Color::BLACK)
             BackgroundColor(NORMAL_BUTTON)
-            Children [(
+            Children [
                 Text({props.label})
                 TextColor::WHITE
                 TextLayout::justify(Justify::Center)
+                TextFont {
+                    font_size: FontSize::Px(20.),
+                }
                 TextShadow::default()
-            )]
+            ]
         }
     }
 }
