@@ -32,6 +32,8 @@ jobs:
               - '**/Cargo.toml'
               - '**/Cargo.lock'
               - '**/*.rs'
+              - '.cargo/**'
+              - 'index.html'
               - '.github/workflows/ci.yml'
             workflows:
               - '.github/workflows/**'
@@ -42,6 +44,11 @@ jobs:
     uses: jaudiger/reusable-workflows/.github/workflows/build-rust.yml@33a0a8da94ca9d6eb9bebea0d3b86af989b883e4
     with:
       system-packages: "libasound2-dev libudev-dev libwayland-dev"
+
+  build-rust-wasm:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    uses: jaudiger/reusable-workflows/.github/workflows/build-rust-trunk.yml@33a0a8da94ca9d6eb9bebea0d3b86af989b883e4
 
   lint-rust:
     needs: changes
@@ -57,7 +64,7 @@ jobs:
 
   ci:
     if: always()
-    needs: [build-rust, lint-rust, lint-actions]
+    needs: [build-rust, build-rust-wasm, lint-rust, lint-actions]
     runs-on: ubuntu-latest
     steps:
       - name: Verify all required checks passed
